@@ -32,6 +32,9 @@ type SecretStoreSpec struct {
 	// Used to configure http retries if failed
 	// +optional
 	RetrySettings *SecretStoreRetrySettings `json:"retrySettings,omitempty"`
+
+	// +optional
+	Conditions []SecretStoreCondition `json:"conditions,omitempty"`
 }
 
 // SecretStoreProvider contains the provider-specific configration.
@@ -94,6 +97,10 @@ type SecretStoreProvider struct {
 type SecretStoreRetrySettings struct {
 	MaxRetries    *int32  `json:"maxRetries,omitempty"`
 	RetryInterval *string `json:"retryInterval,omitempty"`
+}
+
+type SecretStoreCondition struct {
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector"`
 }
 
 type SecretStoreConditionType string
