@@ -34,7 +34,7 @@ type SecretStoreSpec struct {
 	RetrySettings *SecretStoreRetrySettings `json:"retrySettings,omitempty"`
 
 	// +optional
-	Conditions []SecretStoreCondition `json:"conditions,omitempty"`
+	Selectors []SecretStoreSelector `json:"selectors,omitempty"`
 }
 
 // SecretStoreProvider contains the provider-specific configration.
@@ -99,7 +99,7 @@ type SecretStoreRetrySettings struct {
 	RetryInterval *string `json:"retryInterval,omitempty"`
 }
 
-type SecretStoreCondition struct {
+type SecretStoreSelector struct {
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector"`
 }
 
