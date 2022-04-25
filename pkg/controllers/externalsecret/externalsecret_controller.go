@@ -144,6 +144,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
+	if r.ShouldSkipNamespace(store, externalSecret.Namespace) {
+		log.Info("skipping unselected namespace", "namespace", externalSecret.Namespace)
+		return ctrl.Result{}, nil
+	}
+
 	storeProvider, err := esv1beta1.GetProvider(store)
 	if err != nil {
 		log.Error(err, errStoreProvider)
@@ -328,6 +333,28 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{
 		RequeueAfter: refreshInt,
 	}, nil
+}
+
+func (r *Reconciler) ShouldSkipNamespace(store esv1beta1.GenericStore, namespaceName string) bool {
+	selectors := store.GetSpec().Selectors
+	if selectors == nil || len(selectors) == 0 {
+		return false
+	}
+
+	var namespaces v1.NamespaceList
+	for _, selector := range selectors {
+		sel, _ := metav1.LabelSelectorAsSelector(selector.NamespaceSelector)
+		r.List(context.Background(), &namespaces, &client.ListOptions{
+			LabelSelector: sel,
+		})
+		for _, ns := range namespaces.Items {
+			if ns.ObjectMeta.Name == namespaceName {
+				return false
+			}
+		}
+	}
+	return true
+
 }
 
 func patchSecret(ctx context.Context, c client.Client, scheme *runtime.Scheme, secret *v1.Secret, mutationFunc func() error, fieldOwner string) error {
