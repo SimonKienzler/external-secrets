@@ -1147,6 +1147,19 @@ var _ = Describe("ExternalSecret controller", func() {
 		}
 	}
 
+	shouldNotSkipNamespaceWhenNoSelector := func(tc *testCase) {
+		tc.secretStore.Spec.Selectors = nil
+		r := Reconciler{
+			ClusterSecretStoreEnabled: false,
+		}
+		Expect(r.ShouldSkipNamespace(tc.secretStore, "foobar")).To(BeFalse())
+
+		tc.checkCondition = func(es *esv1beta1.ExternalSecret) bool {
+			cond := GetExternalSecretCondition(es.Status, esv1beta1.ExternalSecretReady)
+			return cond == nil
+		}
+	}
+
 	// When the ownership is set to owner, and we delete a dependent child kind=secret
 	// it should be recreated without waiting for refresh interval
 	checkDeletion := func(tc *testCase) {
@@ -1291,6 +1304,7 @@ var _ = Describe("ExternalSecret controller", func() {
 		Entry("should set an error condition when store provider constructor fails", storeConstructErrCondition),
 		Entry("should not process store with mismatching controller field", ignoreMismatchController),
 		Entry("should not process cluster secret store when it is disabled", ignoreClusterSecretStoreWhenDisabled),
+		Entry("should not process secret store when namespace not selected", shouldNotSkipNamespaceWhenNoSelector),
 		Entry("should eventually delete target secret with deletionPolicy=Delete", deleteSecretPolicy),
 		Entry("should not delete target secret with deletionPolicy=Retain", deleteSecretPolicyRetain),
 		Entry("should not delete pre-existing secret with deletionPolicy=Merge", deleteSecretPolicyMerge),
