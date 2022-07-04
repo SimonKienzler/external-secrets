@@ -152,7 +152,7 @@ var _ = Describe("ExternalSecret controller", func() {
 
 	BeforeEach(func() {
 		var err error
-		ExternalSecretNamespace, err = ctest.CreateNamespace("test-ns", k8sClient)
+		ExternalSecretNamespace, err = ctest.CreateNamespaceWithLabels("test-ns", k8sClient, map[string]string{"eso": "true"})
 		Expect(err).ToNot(HaveOccurred())
 		metric.Reset()
 		syncCallsTotal.Reset()
@@ -1160,6 +1160,47 @@ var _ = Describe("ExternalSecret controller", func() {
 		}
 	}
 
+	shouldSkipNamespaceWhenSelectorDoesNotMatch := func(tc *testCase) {
+		tc.secretStore.Spec.Selectors = []esv1beta1.SecretStoreSelector{
+			{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"test": "test",
+					},
+				},
+			},
+		}
+		r := Reconciler{
+			ClusterSecretStoreEnabled: true,
+		}
+		Expect(r.ShouldSkipNamespace(tc.secretStore, ExternalSecretNamespace)).To(BeTrue())
+
+		tc.checkCondition = func(es *esv1beta1.ExternalSecret) bool {
+			cond := GetExternalSecretCondition(es.Status, esv1beta1.ExternalSecretDeleted)
+			return cond == nil
+		}
+	}
+	shouldNotSkipNamespaceWhenSelectorDoesMatch := func(tc *testCase) {
+		tc.secretStore.Spec.Selectors = []esv1beta1.SecretStoreSelector{
+			{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"eso": "true",
+					},
+				},
+			},
+		}
+		r := Reconciler{
+			ClusterSecretStoreEnabled: true,
+		}
+		Expect(r.ShouldSkipNamespace(tc.secretStore, ExternalSecretNamespace)).To(BeFalse())
+
+		tc.checkCondition = func(es *esv1beta1.ExternalSecret) bool {
+			cond := GetExternalSecretCondition(es.Status, esv1beta1.ExternalSecretReady)
+			return cond == nil
+		}
+	}
+
 	// When the ownership is set to owner, and we delete a dependent child kind=secret
 	// it should be recreated without waiting for refresh interval
 	checkDeletion := func(tc *testCase) {
@@ -1305,6 +1346,8 @@ var _ = Describe("ExternalSecret controller", func() {
 		Entry("should not process store with mismatching controller field", ignoreMismatchController),
 		Entry("should not process cluster secret store when it is disabled", ignoreClusterSecretStoreWhenDisabled),
 		Entry("should not process secret store when namespace not selected", shouldNotSkipNamespaceWhenNoSelector),
+		Entry("should not process secret store when selector does not match", shouldSkipNamespaceWhenSelectorDoesNotMatch),
+		Entry("should process secret store when selector does match", shouldNotSkipNamespaceWhenSelectorDoesMatch),
 		Entry("should eventually delete target secret with deletionPolicy=Delete", deleteSecretPolicy),
 		Entry("should not delete target secret with deletionPolicy=Retain", deleteSecretPolicyRetain),
 		Entry("should not delete pre-existing secret with deletionPolicy=Merge", deleteSecretPolicyMerge),
