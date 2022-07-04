@@ -337,16 +337,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 func (r *Reconciler) ShouldSkipNamespace(store esv1beta1.GenericStore, namespaceName string) bool {
 	selectors := store.GetSpec().Selectors
-	if selectors == nil || len(selectors) == 0 {
+	// If the selectors are not there (or: the namespaceSelector is not used), we are not skipping this namespace
+	if len(selectors) == 0 {
 		return false
 	}
 
 	var namespaces v1.NamespaceList
 	for _, selector := range selectors {
+		// Get a list of namespaces which match the namespaceSelector
 		sel, _ := metav1.LabelSelectorAsSelector(selector.NamespaceSelector)
 		r.List(context.Background(), &namespaces, &client.ListOptions{
 			LabelSelector: sel,
 		})
+		// Check if the namespace we want to check is in the list of matching namespaces
 		for _, ns := range namespaces.Items {
 			if ns.ObjectMeta.Name == namespaceName {
 				return false
@@ -354,7 +357,6 @@ func (r *Reconciler) ShouldSkipNamespace(store esv1beta1.GenericStore, namespace
 		}
 	}
 	return true
-
 }
 
 func patchSecret(ctx context.Context, c client.Client, scheme *runtime.Scheme, secret *v1.Secret, mutationFunc func() error, fieldOwner string) error {
