@@ -342,16 +342,22 @@ func (r *Reconciler) ShouldSkipNamespace(store esv1beta1.GenericStore, namespace
 		return false
 	}
 
-	var namespaces v1.NamespaceList
 	for _, selector := range selectors {
 		// Get a list of namespaces which match the namespaceSelector
-		sel, _ := metav1.LabelSelectorAsSelector(selector.NamespaceSelector)
-		r.List(context.Background(), &namespaces, &client.ListOptions{
-			LabelSelector: sel,
-		})
+		sel, err := metav1.LabelSelectorAsSelector(selector.NamespaceSelector)
+		if err != nil {
+			r.Log.Error(err, "error")
+			return true
+		}
+		namespaceList := v1.NamespaceList{}
+		err = r.List(context.Background(), &namespaceList, &client.ListOptions{LabelSelector: sel})
+		if err != nil {
+			// if there's no namespace which matched the namespace selecter, it should skip the given namespace
+			return true
+		}
 		// Check if the namespace we want to check is in the list of matching namespaces
-		for _, ns := range namespaces.Items {
-			if ns.ObjectMeta.Name == namespaceName {
+		for _, ns := range namespaceList.Items {
+			if ns.Name == namespaceName {
 				return false
 			}
 		}
